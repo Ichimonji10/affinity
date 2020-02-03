@@ -422,29 +422,19 @@ class Mesh:
         If the nodes and mesh don't agree within approximately 30 seconds, throw
         ``RouteMismatchError``.
         """
-        # There's two reasons to catch TimedOutError. First, it doesn't give terribly useful
-        # diagnostic information, whereas RouteMismatchError (raised by validate_routes()) does.
-        # Second, we want this library to hide implementation details, like the fact that we depend
-        # on the wait-for package.
+        # We raise RouteMismatchError instead of TimedOutError for two reasons:
         #
-        # It'd be nice if we could raise the original RouteMismatchError. Unfortunately,
-        # TimedOutError doesn't hold a reference to the underlying exception.
-        #
-        # We don't call validate_routes() for a final time from within the except: block, so as to
-        # make tracebacks more concise.
-        settled = True
-        try:
-            wait_for(
-                self.validate_routes,
-                delay=6,
-                num_sec=30,
-                handle_exception=True,
-                fail_condition=lambda result: isinstance(result, RouteMismatchError),
-            )
-        except TimedOutError:
-            settled = False
-        if not settled:
-            self.validate_routes()
+        # * RouteMismatchError provides more useful diagnostic information.
+        # * We want to hide implementation details, i.e. depending on wait-for.
+        out, _ = wait_for(
+            self.validate_routes,
+            delay=6,
+            num_sec=30,
+            handle_exception=True,
+            silent_failure=True,
+        )
+        if out is not None:
+            raise out
 
     @staticmethod
     def validate_ping_results(results, threshold=0.1):
